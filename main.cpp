@@ -124,6 +124,9 @@ class Board {
   int h;
   std::set<std::pair<int, int>> matched_patterns;
   std::set<std::pair<int, int>> magic_tiles;
+  std::vector<std::tuple<int,int,int>> rm_i;
+  std::vector<std::tuple<int,int,int>> rm_j;
+  std::vector<std::pair<int, int>> rm_b;
 public:
   int width() { return w; }
   int height() { return h; }
@@ -156,6 +159,7 @@ public:
     return *this;
   }
   friend bool operator==(const Board& a, const Board& b);
+  friend std::ostream& operator<<(std::ostream& of, const Board& b);
   bool match_pattern(int x, int y, const SizedPattern& p) {
     int color = at(x + p.pat[0].x(), y + p.pat[0].y());
     for(auto i = 1u; i < p.pat.size(); ++i) {
@@ -229,6 +233,9 @@ public:
     }
   }
   int& at(int a, int b){
+    return board[a * h + b];
+  }
+  int at(int a, int b) const{
     return board[a * h + b];
   }
   bool reasonable_coord(int i, int j){
@@ -386,6 +393,145 @@ public:
       longests = 0;
       crosses = 0;
   }
+  // New interface starts here
+  void remove_one_thing() {
+      if(!rm_i.empty()){
+        auto t = rm_i.back();
+        int i = std::get<0>(t);
+        int j = std::get<1>(t);
+        int offset = std::get<2>(t);
+        if(offset == 4){
+          j = 0;
+          offset = h;
+          longers += 1;
+          normals = std::max(0, normals-1);
+        }
+        for(int jj = j; jj < j + offset; ++jj){
+          at(i, jj) = 0;
+          if (is_magic(i, jj)){
+              score -= 3;
+              magic_tiles.erase({i, jj});
+          }
+          score += 1;
+        }
+        if(offset == 5){
+          for(int i = 0; i < w; ++i){
+            at(uniform_dist_2(e1), uniform_dist_3(e1)) = 0;
+            score += 1;
+          }
+          longests += 1;
+          normals = std::max(0, normals-1);
+        }
+        normals += 1;
+        rm_i.pop_back();
+        return;
+      }
+      if(!rm_j.empty()){
+        auto t = rm_j.back();
+        int i = std::get<0>(t);
+        int j = std::get<1>(t);
+        int offset = std::get<2>(t);
+        if(offset == 4){
+          i = 0;
+          offset = w;
+          longers += 1;
+          normals = std::max(0, normals-1);
+        }
+        for(int ii = i; ii < i + offset; ++ii){
+          at(ii, j) = 0;
+          if (is_magic(ii, j)){
+              score -= 3;
+              magic_tiles.erase({ii, j});
+          }
+          score += 1;
+        }
+        if(offset == 5){
+          for(int i = 0; i < w; ++i){
+            at(uniform_dist_2(e1), uniform_dist_3(e1)) = 0;
+            score += 1;
+          }
+          longests += 1;
+          normals = std::max(0, normals-1);
+        }
+        normals += 1;
+        rm_j.pop_back();
+        return;
+      }
+      if(!rm_b.empty()){
+          auto t = rm_b.back();
+          int i = std::get<0>(t);
+          int j = std::get<1>(t);
+          for(int m = -1; m < 2; ++m){
+            for(int n = -1; n < 2; ++n){
+              if(reasonable_coord(i+m, j+n)){
+                at(i+m, j+n) = 0;
+                score += 1;
+              }
+            }
+          }
+          crosses += 1;
+          normals = std::max(0, normals-2);
+          rm_b.pop_back();
+          return;
+      }
+  }
+  void prepare_removals() {
+      rm_i.clear();
+      rm_j.clear();
+      rm_b.clear();
+      matched_patterns.clear();
+      for(int i = 0; i < w; ++i){
+          for(int j = 0; j < h; ++j){
+              int offset_j = 1;
+              int offset_i = 1;
+              while(j + offset_j < h && at(i,j) == at(i, j+offset_j)){
+                  offset_j += 1;
+              }
+              if(offset_j > 2){
+                  rm_i.emplace_back(i, j, offset_j);
+              }
+              while(i + offset_i < w && at(i,j) == at(i+offset_i, j)){
+                  offset_i += 1;
+              }
+              if(offset_i > 2){
+                  rm_j.emplace_back(i, j, offset_i);
+              }
+          }
+      }
+      for(int i = 0; i < int(rm_i.size()); ++i){
+          for(int j = 0; j < int(rm_j.size()); ++j){
+              auto t1 = rm_i[i];
+              auto t2 = rm_j[j];
+              auto i1 = std::get<0>(t1);
+              auto j1 = std::get<1>(t1);
+              auto o1 = std::get<2>(t1);
+              auto i2 = std::get<0>(t2);
+              auto j2 = std::get<1>(t2);
+              auto o2 = std::get<2>(t2);
+              if(i1 >= i2 && i1 < (i2 + o2) && j2 >= j1 && j2 < (j1 + o1)){
+                  rm_b.emplace_back(i1, j1);
+              }
+          }
+      }
+      std::sort(std::begin(rm_i), std::end(rm_i), [](auto& t1, auto& t2) {
+          auto i1 = std::get<0>(t1);
+          auto i2 = std::get<0>(t2);
+          return i1 > i2;
+      });
+      std::sort(std::begin(rm_j), std::end(rm_j), [](auto& t1, auto& t2) {
+          auto i1 = std::get<0>(t1);
+          auto i2 = std::get<0>(t2);
+          return i1 > i2;
+      });
+      std::sort(std::begin(rm_b), std::end(rm_b), [](auto& t1, auto& t2) {
+          auto i1 = std::get<0>(t1);
+          auto i2 = std::get<0>(t2);
+          return i1 > i2;
+      });
+  }
+  bool has_removals() {
+      return rm_i.size() + rm_j.size() + rm_b.size();
+  }
 };
 
 bool operator==(const Board& a, const Board& b){
@@ -398,6 +544,16 @@ bool operator==(const Board& a, const Board& b){
     }
   }
   return true;
+}
+
+std::ostream& operator<<(std::ostream& of, const Board& b) {
+    for(int i = 0; i < b.w; ++i){
+        for(int j = 0; j < b.h; ++j){
+            of << b.at(i, j) << " ";
+        }
+        of << std::endl;
+    }
+    return of;
 }
 
 using Leaderboard = std::vector<std::pair<std::string, int>>;
@@ -433,7 +589,8 @@ void DrawLeaderboard(Leaderboard leaderboard) {
     auto w = GetRenderWidth();
     auto h = GetRenderHeight();
     DrawRectangle(w/4, h/4, w/2, h/2, WHITE);
-    std::string text;
+    std::string text = "Leaderboard:\n";
+    std::sort(std::begin(leaderboard), std::end(leaderboard), [](auto& a, auto& b) {return a.second > b.second; });
     for(auto it: leaderboard){
         text += fmt::format("{}: {}\n", it.first, it.second);
     }
@@ -445,12 +602,16 @@ int main() {
     auto h = 800;
     auto board_size = 16;
     auto board = Board(board_size, board_size);
+    auto old_board = board;
     bool first_click = true;
     int saved_row = 0;
     int saved_col = 0;
     int counter = 0;
     bool draw_leaderboard = false;
     bool input_name = true;
+    bool work_board = false;
+    bool first_work = true;
+    int frame_counter = 0;
     std::string name;
     Leaderboard leaderboard = ReadLeaderboard();
     board.fill();
@@ -460,6 +621,29 @@ int main() {
     InitWindow(w, h, "Tiar2");
     SetTargetFPS(60);
     while(!WindowShouldClose()){
+        if(frame_counter == 60){
+            frame_counter = 0;
+        }else{
+            frame_counter += 1;
+        }
+        if (work_board && frame_counter % 15 == 0) {
+            auto new_board = board;
+            if (!board.has_removals()) {
+                board.prepare_removals();
+            }
+            board.remove_one_thing();
+            board.fill_up();
+            if (new_board == board) {
+                if (first_work) {
+                    board = old_board;
+                }else{
+                    counter += 1;
+                }
+                work_board = false;
+                board.match_patterns();
+            }
+            first_work = false;
+        }
         BeginDrawing();
         ClearBackground(GRAY);
         w = GetRenderWidth();
@@ -475,7 +659,7 @@ int main() {
         auto board_y = h/2 - s/2 + margin;
         auto ss = (s - 2*margin) / board_size;
         auto so = 2;
-        auto mo = ss/8;
+        auto mo = 0.5;
         DrawRectangle(board_x, board_y, ss * board_size, ss * board_size, BLACK);
         for(int i = 0; i < board_size; ++i){
             for(int j = 0; j < board_size; ++j){
@@ -501,7 +685,7 @@ int main() {
                     DrawPoly(Vector2{float(pos_x + radius), float(pos_y + radius + ss/12)}, 3, radius - mo, 180, ORANGE);
                     break;
                 case 5:
-                    DrawPoly(Vector2{float(pos_x + radius), float(pos_y + radius)}, 5, radius - mo, 180, MAGENTA);
+                    DrawPoly(Vector2{float(pos_x + radius), float(pos_y + radius + ss/16)}, 5, radius - mo, 180, MAGENTA);
                     break;
                 case 6:
                     DrawPoly(Vector2{float(pos_x + radius), float(pos_y + radius)}, 4, radius - mo, 0, YELLOW);
@@ -514,46 +698,54 @@ int main() {
                 }
             }
         }
-        if(IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
-            auto pos = GetMousePosition();
-            pos = Vector2Subtract(pos, Vector2{float(board_x), float(board_y)});
-            auto row = trunc(pos.y / ss);
-            auto col = trunc(pos.x / ss);
-            if (first_click) {
-                saved_row = row;
-                saved_col = col;
-                first_click = false;
-            } else {
-                first_click = true;
-                if(((abs(row - saved_row) == 1) ^ (abs(col - saved_col) == 1))){
-                  auto old_board = board;
-                  board.swap(row, col, saved_row, saved_col);
-                  auto new_board = board;
-                  board.stabilize();
-                  if (new_board == board) {
-                      board = old_board;
-                  }else{
-                      counter += 1;
-                  }
-                }
-            }
-        } else if(IsMouseButtonReleased(MOUSE_BUTTON_LEFT)) {
-            auto pos = GetMousePosition();
-            pos = Vector2Subtract(pos, Vector2{float(board_x), float(board_y)});
-            auto row = trunc(pos.y / ss);
-            auto col = trunc(pos.x / ss);
-            if(row != saved_row || col != saved_col){
-                if(!first_click){
+        if (!draw_leaderboard && !input_name && !work_board) {
+            if(IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
+                auto pos = GetMousePosition();
+                pos = Vector2Subtract(pos, Vector2{float(board_x), float(board_y)});
+                auto row = trunc(pos.y / ss);
+                auto col = trunc(pos.x / ss);
+                if (first_click) {
+                    saved_row = row;
+                    saved_col = col;
+                    first_click = false;
+                } else {
                     first_click = true;
                     if(((abs(row - saved_row) == 1) ^ (abs(col - saved_col) == 1))){
-                        auto old_board = board;
+                        first_work = true;
+                        work_board = true;
+                        old_board = board;
                         board.swap(row, col, saved_row, saved_col);
-                        auto new_board = board;
-                        board.stabilize();
-                        if (new_board == board) {
-                            board = old_board;
-                        }else{
-                            counter += 1;
+                        board.prepare_removals();
+//                        auto new_board = board;
+//                        board.stabilize();
+//                        if (new_board == board) {
+//                            board = old_board;
+//                        }else{
+//                            counter += 1;
+//                        }
+                    }
+                }
+            } else if(IsMouseButtonReleased(MOUSE_BUTTON_LEFT)) {
+                auto pos = GetMousePosition();
+                pos = Vector2Subtract(pos, Vector2{float(board_x), float(board_y)});
+                auto row = trunc(pos.y / ss);
+                auto col = trunc(pos.x / ss);
+                if(row != saved_row || col != saved_col){
+                    if(!first_click){
+                        first_click = true;
+                        if(((abs(row - saved_row) == 1) ^ (abs(col - saved_col) == 1))){
+                            first_work = true;
+                            work_board = true;
+                            old_board = board;
+                            board.swap(row, col, saved_row, saved_col);
+                            board.prepare_removals();
+//                            auto new_board = board;
+//                            board.stabilize();
+//                            if (new_board == board) {
+//                                board = old_board;
+//                            }else{
+//                                counter += 1;
+//                            }
                         }
                     }
                 }
@@ -568,6 +760,11 @@ int main() {
             DrawText("Enter your name:", w/4, h/2-h/16, 50, BLACK);
             DrawText(name.c_str(), w/4, h/2-h/16 + 50, 50, BLACK);
         }
+        if (draw_leaderboard && !input_name) {
+            DrawLeaderboard(leaderboard);
+        }
+        DrawText(fmt::format("Moves: {}\nScore: {}\nTrios: {}\nQuartets: {}\nQuintets: {}\nCrosses: {}", counter, board.score, board.normals, board.longers, board.longests, board.crosses).c_str(), 3, 0, 30, BLACK);
+        EndDrawing();
         if(IsKeyPressed(KEY_ENTER) && input_name){
             input_name = false;
             if (name.empty()) {
@@ -577,25 +774,21 @@ int main() {
             if (!name.empty()) {
                 name.pop_back();
             }
-        }else if(IsKeyPressed(KEY_R)){
+        }else if(!input_name && IsKeyPressed(KEY_R)){
             counter = 0;
             board.score = 0;
             board.zero();
-        }else if(IsKeyPressed(KEY_L)){
+            input_name = true;
+        }else if(!input_name && IsKeyPressed(KEY_L)){
             draw_leaderboard = !draw_leaderboard;
         }
-        DrawText(fmt::format("Moves: {}\nScore: {}\nTrios: {}\nQuartets: {}\nQuintets: {}\nCrosses: {}", counter, board.score, board.normals, board.longers, board.longests, board.crosses).c_str(), 3, 0, 30, BLACK);
-        if (draw_leaderboard && !input_name) {
-            DrawLeaderboard(leaderboard);
-        }
-        EndDrawing();
         if (counter == 50){
             leaderboard.emplace_back(name, board.score);
             WriteLeaderboard(leaderboard);
             counter = 0;
             board.score = 0;
             board.zero();
-            input_name = true;
+            draw_leaderboard = true;
         }
     }
     WriteLeaderboard(leaderboard);
