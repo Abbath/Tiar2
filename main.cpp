@@ -105,10 +105,14 @@ inline std::vector<SizedPattern> generate(Pattern p, bool symmetric=false) {
   return res2;
 }
 
+const Pattern three_p_1 = {{0, 0}, {1, 1}, {0, 2}};
+const Pattern three_p_2 = {{1, 0}, {0, 1}, {0, 2}};
 const Pattern four_p = {{0, 0}, {1, 1}, {0, 2}, {0, 3}};
 const Pattern five_p = {{0, 0}, {0, 1}, {1, 2}, {0, 3}, {0, 4}};
 const Pattern seven_p = {{0, 0}, {1, 1}, {1, 2}, {1, 3}, {2, 0}, {3, 0}, {4, 0}};
 
+const std::vector<SizedPattern> threes1 = generate(three_p_1);
+const std::vector<SizedPattern> threes2 = generate(three_p_2);
 const std::vector<SizedPattern> fours = generate(four_p);
 const std::vector<SizedPattern> fives = generate(five_p);
 const std::vector<SizedPattern> sevens = generate(seven_p);
@@ -123,6 +127,7 @@ class Board {
   int w;
   int h;
   std::set<std::pair<int, int>> matched_patterns;
+  std::set<std::pair<int, int>> matched_threes;
   std::set<std::pair<int, int>> magic_tiles;
   std::vector<std::tuple<int,int,int>> rm_i;
   std::vector<std::tuple<int,int,int>> rm_j;
@@ -206,7 +211,7 @@ public:
     }
   }
   bool is_matched(int x, int y) {
-    return matched_patterns.count({x, y}) > 0;
+    return matched_patterns.contains({x, y});
   }
   bool is_magic(int x, int y) {
     return magic_tiles.count({x, y}) > 0;
@@ -380,11 +385,13 @@ public:
       fill_up();
     }while(!(*this == old_board));
     match_patterns();
+    match_threes();
   }
   void step() {
       remove_trios();
       fill_up();
       match_patterns();
+      match_threes();
   }
   void zero() {
       score = 0;
@@ -480,6 +487,7 @@ public:
       rm_j.clear();
       rm_b.clear();
       matched_patterns.clear();
+      matched_threes.clear();
       for(int i = 0; i < w; ++i){
           for(int j = 0; j < h; ++j){
               int offset_j = 1;
@@ -531,6 +539,34 @@ public:
   }
   bool has_removals() {
       return rm_i.size() + rm_j.size() + rm_b.size();
+  }
+  void match_threes() {
+      matched_threes.clear();
+      for(const SizedPattern& sp : threes1){
+        for(int i = 0; i <= w - sp.w; ++i){
+          for(int j = 0; j <= h - sp.h; ++j){
+            if(match_pattern(i, j, sp)){
+              for(const Point& p: sp.pat){
+                matched_threes.insert({i + p.x(), j + p.y()});
+              }
+            }
+          }
+        }
+      }
+      for(const SizedPattern& sp : threes2){
+        for(int i = 0; i <= w - sp.w; ++i){
+          for(int j = 0; j <= h - sp.h; ++j){
+            if(match_pattern(i, j, sp)){
+              for(const Point& p: sp.pat){
+                matched_threes.insert({i + p.x(), j + p.y()});
+              }
+            }
+          }
+        }
+      }
+  }
+  bool is_three(int i, int j) {
+      return matched_threes.contains({i, j});
   }
 };
 
@@ -585,14 +621,19 @@ void WriteLeaderboard(Leaderboard leaderboard) {
 }
 
 
-void DrawLeaderboard(Leaderboard leaderboard) {
+void DrawLeaderboard(Leaderboard leaderboard, size_t offset = 0) {
     auto w = GetRenderWidth();
     auto h = GetRenderHeight();
     DrawRectangle(w/4, h/4, w/2, h/2, WHITE);
     std::string text = "Leaderboard:\n";
     std::sort(std::begin(leaderboard), std::end(leaderboard), [](auto& a, auto& b) {return a.second > b.second; });
-    for(auto it: leaderboard){
-        text += fmt::format("{}: {}\n", it.first, it.second);
+    offset = std::min(offset, leaderboard.size() - 1);
+    auto finish = std::min(offset + 9, leaderboard.size());
+    for(auto it = leaderboard.begin() + offset; it != leaderboard.begin() + finish; ++it){
+        text += fmt::format("{}. {}: {}\n", (it - leaderboard.begin()) + 1, it->first, it->second);
+    }
+    if (finish != leaderboard.size()) {
+        text += "...";
     }
     DrawText(text.c_str(), w/4 + 10, h/4 + 10, 20, BLACK);
 }
@@ -613,6 +654,7 @@ int main() {
     bool first_work = true;
     int frame_counter = 0;
     bool hints = false;
+    size_t l_offset = 0;
     std::string name;
     Leaderboard leaderboard = ReadLeaderboard();
     board.fill();
@@ -644,11 +686,12 @@ int main() {
                 }
                 work_board = false;
                 board.match_patterns();
+                board.match_threes();
             }
             first_work = false;
         }
         BeginDrawing();
-        ClearBackground(GRAY);
+        ClearBackground(RAYWHITE);
         w = GetRenderWidth();
         h = GetRenderHeight();
         auto s = 0;
@@ -669,10 +712,12 @@ int main() {
                 auto pos_x = board_x + i*ss + so;
                 auto pos_y = board_y + j*ss + so;
                 auto radius = (ss-2*so)/2;
-                if (board.is_matched(j, i) && hints){
+                if (board.is_matched(j, i) && hints) {
                     DrawRectangle(pos_x, pos_y, ss - 2*so, ss - 2*so, DARKGRAY);
-                }else{
+                }else if (board.is_three(j, i) && hints) {
                     DrawRectangle(pos_x, pos_y, ss - 2*so, ss - 2*so, LIGHTGRAY);
+                }else{
+                    DrawRectangle(pos_x, pos_y, ss - 2*so, ss - 2*so, GRAY);
                 }
                 switch(board.at(j, i)){
                 case 1:
@@ -697,7 +742,7 @@ int main() {
                     break;
                 }
                 if (board.is_magic(j, i)){
-                    DrawEllipse(pos_x + radius, pos_y + radius, mo, mo, WHITE);
+                    DrawEllipse(pos_x + radius, pos_y + radius, mo, mo, BLACK);
                 }
             }
         }
@@ -764,7 +809,24 @@ int main() {
             DrawText(name.c_str(), w/4, h/2-h/16 + 50, 50, BLACK);
         }
         if (draw_leaderboard && !input_name) {
-            DrawLeaderboard(leaderboard);
+            auto wheel_move = GetMouseWheelMove();
+            auto kd = IsKeyPressed(KEY_DOWN);
+            auto ku = IsKeyPressed(KEY_UP);
+            if (wheel_move == 0) {
+                if (kd) {
+                    wheel_move = -1;
+                }
+                if (ku) {
+                    wheel_move = 1;
+                }
+            }
+            if (wheel_move != 0) {
+                if (l_offset != 0 || wheel_move != 1) {
+                    l_offset = l_offset - size_t(wheel_move);
+                }
+                l_offset = std::min(l_offset, leaderboard.size() - 1);
+            }
+            DrawLeaderboard(leaderboard, l_offset);
         }
         DrawText(fmt::format("Moves: {}\nScore: {}\nTrios: {}\nQuartets: {}\nQuintets: {}\nCrosses: {}", counter, board.score, board.normals, board.longers, board.longests, board.crosses).c_str(), 3, 0, 30, BLACK);
         EndDrawing();
