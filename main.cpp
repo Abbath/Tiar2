@@ -612,6 +612,7 @@ int main() {
     bool work_board = false;
     bool first_work = true;
     int frame_counter = 0;
+    bool hints = false;
     std::string name;
     Leaderboard leaderboard = ReadLeaderboard();
     board.fill();
@@ -619,6 +620,8 @@ int main() {
     board.zero();
     SetConfigFlags(FLAG_WINDOW_RESIZABLE);
     InitWindow(w, h, "Tiar2");
+    auto icon = LoadImage("icon.png");
+    SetWindowIcon(icon);
     SetTargetFPS(60);
     while(!WindowShouldClose()){
         if(frame_counter == 60){
@@ -666,7 +669,7 @@ int main() {
                 auto pos_x = board_x + i*ss + so;
                 auto pos_y = board_y + j*ss + so;
                 auto radius = (ss-2*so)/2;
-                if (board.is_matched(j, i)){
+                if (board.is_matched(j, i) && hints){
                     DrawRectangle(pos_x, pos_y, ss - 2*so, ss - 2*so, DARKGRAY);
                 }else{
                     DrawRectangle(pos_x, pos_y, ss - 2*so, ss - 2*so, LIGHTGRAY);
@@ -774,13 +777,17 @@ int main() {
             if (!name.empty()) {
                 name.pop_back();
             }
-        }else if(!input_name && IsKeyPressed(KEY_R)){
-            counter = 0;
-            board.score = 0;
-            board.zero();
-            input_name = true;
-        }else if(!input_name && IsKeyPressed(KEY_L)){
-            draw_leaderboard = !draw_leaderboard;
+        }else if(!input_name)  {
+            if(IsKeyPressed(KEY_R)){
+                counter = 0;
+                board.score = 0;
+                board.zero();
+                input_name = true;
+            }else if(IsKeyPressed(KEY_L)){
+                draw_leaderboard = !draw_leaderboard;
+            }else if(IsKeyPressed(KEY_H)){
+                hints = !hints;
+            }
         }
         if (counter == 50){
             leaderboard.emplace_back(name, board.score);
