@@ -107,12 +107,14 @@ inline std::vector<SizedPattern> generate(Pattern p, bool symmetric=false) {
 
 const Pattern three_p_1 = {{0, 0}, {1, 1}, {0, 2}};
 const Pattern three_p_2 = {{1, 0}, {0, 1}, {0, 2}};
+const Pattern three_p_3 = {{0, 0}, {0, 1}, {0, 3}};
 const Pattern four_p = {{0, 0}, {1, 1}, {0, 2}, {0, 3}};
 const Pattern five_p = {{0, 0}, {0, 1}, {1, 2}, {0, 3}, {0, 4}};
 const Pattern seven_p = {{0, 0}, {1, 1}, {1, 2}, {1, 3}, {2, 0}, {3, 0}, {4, 0}};
 
 const std::vector<SizedPattern> threes1 = generate(three_p_1);
 const std::vector<SizedPattern> threes2 = generate(three_p_2);
+const std::vector<SizedPattern> threes3 = generate(three_p_3);
 const std::vector<SizedPattern> fours = generate(four_p);
 const std::vector<SizedPattern> fives = generate(five_p);
 const std::vector<SizedPattern> sevens = generate(seven_p);
@@ -554,6 +556,17 @@ public:
         }
       }
       for(const SizedPattern& sp : threes2){
+        for(int i = 0; i <= w - sp.w; ++i){
+          for(int j = 0; j <= h - sp.h; ++j){
+            if(match_pattern(i, j, sp)){
+              for(const Point& p: sp.pat){
+                matched_threes.insert({i + p.x(), j + p.y()});
+              }
+            }
+          }
+        }
+      }
+      for(const SizedPattern& sp : threes3){
         for(int i = 0; i <= w - sp.w; ++i){
           for(int j = 0; j <= h - sp.h; ++j){
             if(match_pattern(i, j, sp)){
