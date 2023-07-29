@@ -667,6 +667,7 @@ int main() {
     bool first_work = true;
     int frame_counter = 0;
     bool hints = false;
+    bool nonacid_colors = false;
     size_t l_offset = 0;
     std::string name;
     Leaderboard leaderboard = ReadLeaderboard();
@@ -734,22 +735,22 @@ int main() {
                 }
                 switch(board.at(j, i)){
                 case 1:
-                    DrawPoly(Vector2{float(pos_x + radius), float(pos_y + radius)}, 4, radius - mo, 45, RED);
+                    DrawPoly(Vector2{float(pos_x + radius), float(pos_y + radius)}, 4, radius - mo, 45, nonacid_colors ? Color{255, 127, 127, 255} : RED);
                     break;
                 case 2:
-                    DrawCircle(pos_x + radius, pos_y + radius, radius - mo, GREEN);
+                    DrawCircle(pos_x + radius, pos_y + radius, radius - mo, nonacid_colors ? Color{127, 255, 127, 255} : GREEN);
                     break;
                 case 3:
-                    DrawPoly(Vector2{float(pos_x + radius), float(pos_y + radius)}, 6, radius - mo, 30, BLUE);
+                    DrawPoly(Vector2{float(pos_x + radius), float(pos_y + radius)}, 6, radius - mo, 30, nonacid_colors ? Color{127, 127, 255, 255} : BLUE);
                     break;
                 case 4:
-                    DrawPoly(Vector2{float(pos_x + radius), float(pos_y + radius + ss/12)}, 3, radius - mo, 180, ORANGE);
+                    DrawPoly(Vector2{float(pos_x + radius), float(pos_y + radius + ss/12)}, 3, radius - mo, 180, nonacid_colors ? Color{255, 128, 0, 255} : ORANGE);
                     break;
                 case 5:
-                    DrawPoly(Vector2{float(pos_x + radius), float(pos_y + radius + ss/16)}, 5, radius - mo, 180, MAGENTA);
+                    DrawPoly(Vector2{float(pos_x + radius), float(pos_y + radius + ss/16)}, 5, radius - mo, 180, nonacid_colors ? Color{192, 0, 192, 255} : MAGENTA);
                     break;
                 case 6:
-                    DrawPoly(Vector2{float(pos_x + radius), float(pos_y + radius)}, 4, radius - mo, 0, YELLOW);
+                    DrawPoly(Vector2{float(pos_x + radius), float(pos_y + radius)}, 4, radius - mo, 0, nonacid_colors ? Color{192, 192, 9, 255} : YELLOW);
                     break;
                 default:
                     break;
@@ -862,6 +863,8 @@ int main() {
                 draw_leaderboard = !draw_leaderboard;
             }else if(IsKeyPressed(KEY_H)){
                 hints = !hints;
+            }else if(IsKeyPressed(KEY_A)){
+                nonacid_colors = !nonacid_colors;
             }
         }
         if (counter == 50){
