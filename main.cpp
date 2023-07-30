@@ -5,6 +5,7 @@
 #include <set>
 #include <chrono>
 #include <fstream>
+#include <cmath>
 #include <fmt/format.h>
 
 #include <raylib.h>
@@ -816,8 +817,8 @@ int main() {
                 }
             }
             if (wheel_move != 0) {
-                if (l_offset != 0 || wheel_move != 1) {
-                    l_offset = l_offset - size_t(wheel_move);
+                if (l_offset != 0 || wheel_move <= 0) {
+                    l_offset = l_offset - size_t(std::signbit(wheel_move) ? -1 : 1);
                 }
                 l_offset = std::min(l_offset, leaderboard.size() - 1);
             }
