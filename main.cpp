@@ -700,6 +700,7 @@ int main() {
     int frame_counter = 0;
     bool hints = false;
     bool nonacid_colors = false;
+    bool ignore_r = false;
     size_t l_offset = 0;
     std::string name;
     Leaderboard leaderboard = ReadLeaderboard();
@@ -797,9 +798,10 @@ int main() {
         }
         if(input_name){
             char c = GetCharPressed();
-            if (c && c != ';' && name.length() < 22) {
+            if (c && c != ';' && name.length() < 22 && !ignore_r) {
                 name += c;
             }
+            ignore_r = false;
             DrawRectangle(w/4, h/2-h/16, w/2, h/8, WHITE);
             DrawText("Enter your name:", w/4, h/2-h/16, 50, BLACK);
             DrawText(name.c_str(), w/4, h/2-h/16 + 50, 50, BLACK);
@@ -908,6 +910,7 @@ int main() {
                 counter = 0;
                 board.score = 0;
                 board.zero();
+                ignore_r = true;
                 input_name = true;
             }else if(IsKeyPressed(KEY_L)){
                 draw_leaderboard = !draw_leaderboard;
