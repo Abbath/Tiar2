@@ -246,7 +246,6 @@ public:
     }
   }
   void fill() {
-    std::cerr << "FILLING";
     score = 0;
     for (auto &x : board) {
       x = uniform_dist(e1);
@@ -565,21 +564,14 @@ public:
         }
       }
     }
-    std::sort(std::begin(rm_i), std::end(rm_i), [](auto &t1, auto &t2) {
+    auto sorter = [](auto &t1, auto &t2) {
       auto i1 = std::get<0>(t1);
       auto i2 = std::get<0>(t2);
       return i1 > i2;
-    });
-    std::sort(std::begin(rm_j), std::end(rm_j), [](auto &t1, auto &t2) {
-      auto i1 = std::get<0>(t1);
-      auto i2 = std::get<0>(t2);
-      return i1 > i2;
-    });
-    std::sort(std::begin(rm_b), std::end(rm_b), [](auto &t1, auto &t2) {
-      auto i1 = std::get<0>(t1);
-      auto i2 = std::get<0>(t2);
-      return i1 > i2;
-    });
+    };
+    std::sort(std::begin(rm_i), std::end(rm_i), sorter);
+    std::sort(std::begin(rm_j), std::end(rm_j), sorter);
+    std::sort(std::begin(rm_b), std::end(rm_b), sorter);
   }
   bool has_removals() { return rm_i.size() + rm_j.size() + rm_b.size(); }
   void match_threes() {
@@ -1096,6 +1088,8 @@ int main() {
         input_name = true;
       } else if (IsKeyPressed(KEY_L)) {
         draw_leaderboard = !draw_leaderboard;
+      } else if (IsKeyPressed(KEY_P)) {
+        particles = !particles;
       } else if (IsKeyPressed(KEY_H)) {
         hints = !hints;
       } else if (IsKeyPressed(KEY_A)) {
