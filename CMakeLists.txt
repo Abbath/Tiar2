@@ -15,6 +15,6 @@ if (UNIX)
 endif (UNIX)
 
 if (WIN32)
-    target_include_directories(Tiar2 PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/fmt/include")
-    target_link_libraries(Tiar2 PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/../raylib-4.5.0/lib/raylib.dll" "${CMAKE_CURRENT_SOURCE_DIR}/fmt/bin/libfmt.dll")
+    target_include_directories(Tiar2 PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/../fmt/include")
+    target_link_libraries(Tiar2 PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/../raylib-4.5.0/lib/raylib.dll" "${CMAKE_CURRENT_SOURCE_DIR}/../fmt/bin/libfmt.dll")
 endif (WIN32)
