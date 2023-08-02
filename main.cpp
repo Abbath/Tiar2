@@ -427,7 +427,8 @@ public:
     crosses = 0;
   }
   // New interface starts here
-  void remove_one_thing() {
+  std::vector<std::pair<int, int>> remove_one_thing() {
+    std::vector<std::pair<int, int>> res;
     if (!rm_i.empty()) {
       auto t = rm_i.back();
       int i = std::get<0>(t);
@@ -441,6 +442,7 @@ public:
       }
       for (int jj = j; jj < j + offset; ++jj) {
         at(i, jj) = 0;
+        res.emplace_back(i, jj);
         if (is_magic(i, jj)) {
           score -= 3;
           magic_tiles.erase({i, jj});
@@ -453,7 +455,10 @@ public:
       }
       if (offset == 5) {
         for (int i = 0; i < w; ++i) {
-          at(uniform_dist_2(e1), uniform_dist_3(e1)) = 0;
+          auto x = uniform_dist_2(e1);
+          auto y = uniform_dist_3(e1);
+          at(x, y) = 0;
+          res.emplace_back(x, y);
           score += 1;
         }
         longests += 1;
@@ -461,7 +466,7 @@ public:
       }
       normals += 1;
       rm_i.pop_back();
-      return;
+      return res;
     }
     if (!rm_j.empty()) {
       auto t = rm_j.back();
@@ -476,6 +481,7 @@ public:
       }
       for (int ii = i; ii < i + offset; ++ii) {
         at(ii, j) = 0;
+        res.emplace_back(ii, j);
         if (is_magic(ii, j)) {
           score -= 3;
           magic_tiles.erase({ii, j});
@@ -488,7 +494,9 @@ public:
       }
       if (offset == 5) {
         for (int i = 0; i < w; ++i) {
-          at(uniform_dist_2(e1), uniform_dist_3(e1)) = 0;
+          auto x = uniform_dist_2(e1);
+          auto y = uniform_dist_3(e1);
+          at(x, y) = 0;
           score += 1;
         }
         longests += 1;
@@ -496,7 +504,7 @@ public:
       }
       normals += 1;
       rm_j.pop_back();
-      return;
+      return res;
     }
     if (!rm_b.empty()) {
       auto t = rm_b.back();
@@ -506,6 +514,7 @@ public:
         for (int n = -2; n < 3; ++n) {
           if (reasonable_coord(i + m, j + n)) {
             at(i + m, j + n) = 0;
+            res.emplace_back(i + m, j + n);
             score += 1;
           }
         }
@@ -513,8 +522,9 @@ public:
       crosses += 1;
       normals = std::max(0, normals - 2);
       rm_b.pop_back();
-      return;
+      return res;
     }
+    return res;
   }
   void prepare_removals() {
     rm_i.clear();
@@ -782,12 +792,13 @@ public:
     _board.swap(row1, col1, row2, col2);
     _board.prepare_removals();
   }
-  void step() {
+  std::vector<std::pair<int, int>> step() {
+    std::vector<std::pair<int, int>> res;
     auto new_board = _board;
     if (!_board.has_removals()) {
       _board.prepare_removals();
     }
-    _board.remove_one_thing();
+    res = _board.remove_one_thing();
     _board.fill_up();
     if (new_board == _board) {
       if (first_work) {
@@ -800,6 +811,7 @@ public:
       _board.match_threes();
     }
     first_work = false;
+    return res;
   }
   bool is_finished() { return counter == 50; }
   bool is_processing() { return work_board; }
@@ -809,6 +821,15 @@ public:
                        counter, _board.score, _board.normals, _board.longers,
                        _board.longests, _board.crosses);
   }
+};
+
+struct Particle {
+  float dx = 0;
+  float dy = 0;
+  float da = 0;
+  float x = 0;
+  float y = 0;
+  float a = 0;
 };
 
 int main() {
@@ -823,10 +844,15 @@ int main() {
   bool input_name = false;
   int frame_counter = 0;
   bool hints = false;
+  bool particles = false;
   bool nonacid_colors = false;
   bool ignore_r = false;
   size_t l_offset = 0;
   Leaderboard leaderboard = ReadLeaderboard();
+  std::vector<Particle> flying;
+  std::default_random_engine eng{static_cast<unsigned>(
+      std::chrono::system_clock::now().time_since_epoch().count())};
+  std::uniform_int_distribution<int> dd{-10, 10};
   if (!game.load_game()) {
     game.new_game();
     input_name = true;
@@ -842,9 +868,6 @@ int main() {
     } else {
       frame_counter += 1;
     }
-    if (game.is_processing() && frame_counter % 6 == 0) {
-      game.step();
-    }
     w = GetRenderWidth();
     h = GetRenderHeight();
     auto s = 0;
@@ -859,6 +882,16 @@ int main() {
     auto ss = (s - 2 * margin) / board_size;
     auto so = 2;
     auto mo = 0.5;
+    if (game.is_processing() && frame_counter % 6 == 0) {
+      auto f = game.step();
+      if (particles) {
+        for (auto it = f.begin(); it != f.end(); ++it) {
+          flying.emplace_back(dd(eng), dd(eng), dd(eng),
+                              it->second * ss + board_x,
+                              it->first * ss + board_y, 0);
+        }
+      }
+    }
     BeginDrawing();
     ClearBackground(RAYWHITE);
     DrawRectangle(board_x, board_y, ss * board_size, ss * board_size, BLACK);
@@ -948,21 +981,46 @@ int main() {
       DrawLeaderboard(leaderboard, l_offset);
     }
     DrawText(game.game_stats().c_str(), 3, 0, 30, BLACK);
-    auto hints_button =
-        DrawButton({float(w - 210), float(h - 40)}, "HINTS", hints);
-    auto acid_button =
-        DrawButton({float(w - 210), float(h - 80)}, "NO ACID", nonacid_colors);
-    auto lbutton = DrawButton({float(w - 210), float(h - 120)}, "LEADERBOARD",
-                              draw_leaderboard);
-    auto rbutton =
-        DrawButton({float(w - 210), float(h - 160)}, "RESTART", false);
+    auto start_y = 0;
+    auto particles_button = DrawButton(
+        {float(w - 210), float(h - (start_y += 40))}, "PARTICLES", particles);
+    auto hints_button = DrawButton({float(w - 210), float(h - (start_y += 40))},
+                                   "HINTS", hints);
+    auto acid_button = DrawButton({float(w - 210), float(h - (start_y += 40))},
+                                  "NO ACID", nonacid_colors);
+    auto lbutton = DrawButton({float(w - 210), float(h - (start_y += 40))},
+                              "LEADERBOARD", draw_leaderboard);
+    auto rbutton = DrawButton({float(w - 210), float(h - (start_y += 40))},
+                              "RESTART", false);
     auto load_button =
-        DrawButton({float(w - 210), float(h - 200)}, "LOAD", false);
+        DrawButton({float(w - 210), float(h - (start_y += 40))}, "LOAD", false);
     auto save_button =
-        DrawButton({float(w - 210), float(h - 240)}, "SAVE", false);
+        DrawButton({float(w - 210), float(h - (start_y += 40))}, "SAVE", false);
+    if (particles) {
+      std::vector<Particle> new_flying;
+      for (auto it = flying.begin(); it != flying.end(); ++it) {
+        Particle p = *it;
+        auto c = MAROON;
+        c.a = 255 - (128 * p.y / h);
+        DrawPoly(Vector2{float(p.x), float(p.y)}, 4, ss / 2, p.a, c);
+        p.y += p.dy;
+        if (p.y > h) {
+          continue;
+        }
+        p.x += p.dx;
+        p.a += p.da;
+        p.dy += 1;
+        new_flying.push_back(p);
+      }
+      flying = new_flying;
+    }
+    EndDrawing();
     if (!input_name && !game.is_processing()) {
       if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
         auto pos = GetMousePosition();
+        if (in_button(pos, particles_button)) {
+          particles = !particles;
+        }
         if (in_button(pos, hints_button)) {
           hints = !hints;
         }
@@ -1022,7 +1080,6 @@ int main() {
       }
     }
   outside:
-    EndDrawing();
     if (IsKeyPressed(KEY_ENTER) && input_name) {
       input_name = false;
       if (game.name().empty()) {
