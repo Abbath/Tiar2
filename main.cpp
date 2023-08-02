@@ -752,12 +752,12 @@ public:
     _board.stabilize();
     _board.zero();
   }
-  void save_game() {
+  void save() {
     std::ofstream save("save.txt");
     save << _name << " " << counter << "\n";
     save << _board;
   }
-  bool load_game() {
+  bool load() {
     std::ifstream load("save.txt");
     if (load) {
       work_board = false;
@@ -824,6 +824,12 @@ struct Particle {
   float a = 0;
 };
 
+void button_flag(Vector2 pos, Button button, bool &flag) {
+  if (in_button(pos, button)) {
+    flag = !flag;
+  }
+}
+
 int main() {
   auto w = 1280;
   auto h = 800;
@@ -837,6 +843,7 @@ int main() {
   int frame_counter = 0;
   bool hints = false;
   bool particles = false;
+  bool play_sound = false;
   bool nonacid_colors = false;
   bool ignore_r = false;
   size_t l_offset = 0;
@@ -845,7 +852,10 @@ int main() {
   std::default_random_engine eng{static_cast<unsigned>(
       std::chrono::system_clock::now().time_since_epoch().count())};
   std::uniform_int_distribution<int> dd{-10, 10};
-  if (!game.load_game()) {
+  InitAudioDevice();
+  SetMasterVolume(0.5);
+  Sound sound = LoadSound("p.ogg");
+  if (!game.load()) {
     game.new_game();
     input_name = true;
   }
@@ -876,6 +886,9 @@ int main() {
     auto mo = 0.5;
     if (game.is_processing() && frame_counter % 6 == 0) {
       auto f = game.step();
+      if (play_sound && !f.empty() && IsSoundReady(sound)) {
+        PlaySound(sound);
+      }
       if (particles) {
         for (auto it = f.begin(); it != f.end(); ++it) {
           flying.emplace_back(dd(eng), dd(eng), dd(eng),
@@ -973,7 +986,11 @@ int main() {
       DrawLeaderboard(leaderboard, l_offset);
     }
     DrawText(game.game_stats().c_str(), 3, 0, 30, BLACK);
+    DrawText((fmt::format("Player:\n") + game.name()).c_str(), 3, h - 55, 20,
+             BLACK);
     auto start_y = 0;
+    auto sound_button = DrawButton({float(w - 210), float(h - (start_y += 40))},
+                                   "SOUND", play_sound);
     auto particles_button = DrawButton(
         {float(w - 210), float(h - (start_y += 40))}, "PARTICLES", particles);
     auto hints_button = DrawButton({float(w - 210), float(h - (start_y += 40))},
@@ -1010,27 +1027,20 @@ int main() {
     if (!input_name && !game.is_processing()) {
       if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
         auto pos = GetMousePosition();
-        if (in_button(pos, particles_button)) {
-          particles = !particles;
-        }
-        if (in_button(pos, hints_button)) {
-          hints = !hints;
-        }
-        if (in_button(pos, acid_button)) {
-          nonacid_colors = !nonacid_colors;
-        }
-        if (in_button(pos, lbutton)) {
-          draw_leaderboard = !draw_leaderboard;
-        }
+        button_flag(pos, sound_button, play_sound);
+        button_flag(pos, particles_button, particles);
+        button_flag(pos, hints_button, hints);
+        button_flag(pos, acid_button, nonacid_colors);
+        button_flag(pos, lbutton, draw_leaderboard);
         if (in_button(pos, rbutton)) {
           game.new_game();
           input_name = true;
         }
         if (in_button(pos, load_button)) {
-          game.load_game();
+          game.load();
         }
         if (in_button(pos, save_button)) {
-          game.save_game();
+          game.save();
         }
         if (draw_leaderboard) {
           goto outside;
@@ -1082,22 +1092,45 @@ int main() {
         game.name().pop_back();
       }
     } else if (!input_name) {
-      if (IsKeyPressed(KEY_R)) {
-        game.new_game();
-        ignore_r = true;
-        input_name = true;
-      } else if (IsKeyPressed(KEY_L)) {
-        draw_leaderboard = !draw_leaderboard;
-      } else if (IsKeyPressed(KEY_P)) {
-        particles = !particles;
-      } else if (IsKeyPressed(KEY_H)) {
-        hints = !hints;
-      } else if (IsKeyPressed(KEY_A)) {
-        nonacid_colors = !nonacid_colors;
-      } else if (IsKeyPressed(KEY_S)) {
-        game.save_game();
-      } else if (IsKeyPressed(KEY_O)) {
-        game.load_game();
+      while (int key = GetKeyPressed()) {
+        switch (KeyboardKey(key)) {
+        case KEY_R: {
+          game.new_game();
+          ignore_r = true;
+          input_name = true;
+          break;
+        }
+        case KEY_L: {
+          draw_leaderboard = !draw_leaderboard;
+          break;
+        }
+        case KEY_P: {
+          particles = !particles;
+          break;
+        }
+        case KEY_M: {
+          play_sound = !play_sound;
+          break;
+        }
+        case KEY_H: {
+          hints = !hints;
+          break;
+        }
+        case KEY_A: {
+          nonacid_colors = !nonacid_colors;
+          break;
+        }
+        case KEY_S: {
+          game.save();
+          break;
+        }
+        case KEY_O: {
+          game.load();
+          break;
+        }
+        default:
+          break;
+        }
       }
     }
     if (game.is_finished()) {
@@ -1107,7 +1140,9 @@ int main() {
       draw_leaderboard = true;
     }
   }
-  game.save_game();
+  game.save();
   WriteLeaderboard(leaderboard);
+  CloseWindow();
+  CloseAudioDevice();
   return 0;
 }
