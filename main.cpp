@@ -727,27 +727,49 @@ bool in_button(Vector2 pos, Button button) {
          pos.y < button.y2;
 }
 
+bool operator==(const Color& a, const Color& b) {
+  return a.r == b.r && a.g == b.g && a.b == a.b && a.a == b.a;
+}
 class ButtonMaker {
   bool _play_sound;
   Sound _sound;
+  float _volume;
   std::vector<Button> buttons;
   static bool enter;
 
 public:
-  ButtonMaker(bool play_sound, Sound sound)
-      : _play_sound{play_sound}, _sound{sound} {}
+  ButtonMaker(bool play_sound, Sound sound, float volume)
+      : _play_sound{play_sound}, _sound{sound}, _volume{volume} {}
   Button draw_button(Vector2 place, std::string text, bool enabled) {
     bool button_down = IsMouseButtonDown(MOUSE_BUTTON_LEFT);
     auto pos = GetMousePosition();
     if (in_button(pos, Button{int(place.x), int(place.y), int(place.x + 200),
                               int(place.y + 30)})) {
-      DrawRectangle(place.x, place.y, 200, 30,
-                    enabled ? YELLOW : (button_down ? DARKGRAY : LIGHTGRAY));
+      Color c = enabled ? YELLOW : (button_down ? DARKGRAY : LIGHTGRAY);
+      if (text == "SOUND") {
+        int level{_volume * 200};
+        DrawRectangle(place.x, place.y, level, 30, YELLOW);
+        DrawRectangle(place.x + level, place.y, 200 - level, 30, LIGHTGRAY);
+        if (button_down) {
+          int x = GetMouseX();
+          _volume = (x - place.x) / 200.0;
+        }
+      } else {
+        DrawRectangle(place.x, place.y, 200, 30, c);
+      }
     } else {
-      DrawRectangle(place.x, place.y, 200, 30, enabled ? GOLD : GRAY);
+      Color c = enabled ? GOLD : GRAY;
+      if (text == "SOUND") {
+        int level{_volume * 200};
+        DrawRectangle(place.x, place.y, level, 30, GOLD);
+        DrawRectangle(place.x + level, place.y, 200 - level, 30, GRAY);
+      } else {
+        DrawRectangle(place.x, place.y, 200, 30, c);
+      }
     }
-    auto width = MeasureText(text.c_str(), 20);
-    DrawText(text.c_str(), place.x + 100 - width / 2, place.y + 5, 20, BLACK);
+    const char *label = text == "SOUND" ? fmt::format("SOUND ({}%)", int(_volume * 100)).c_str() : text.c_str();
+    auto width = MeasureText(label, 20);
+    DrawText(label, place.x + 100 - width / 2, place.y + 5, 20, BLACK);
     auto button = Button{int(place.x), int(place.y), int(place.x + 200),
                          int(place.y + 30)};
     buttons.push_back(button);
@@ -773,6 +795,9 @@ public:
     if (!in) {
       enter = true;
     }
+  }
+  float volume() const {
+    return _volume;
   }
 };
 
@@ -899,6 +924,7 @@ int main() {
   bool nonacid_colors = false;
   bool ignore_r = false;
   size_t l_offset = 0;
+  float volume = 0.0f;
   Leaderboard leaderboard = ReadLeaderboard();
   std::vector<Particle> flying;
   std::vector<Explosion> staying;
@@ -906,7 +932,6 @@ int main() {
       std::chrono::system_clock::now().time_since_epoch().count())};
   std::uniform_int_distribution<int> dd{-10, 10};
   InitAudioDevice();
-  SetMasterVolume(0.5);
   Sound psound = LoadSound("p.ogg");
   Sound ksound = LoadSound("k.ogg");
   if (!game.load()) {
@@ -919,6 +944,7 @@ int main() {
   SetWindowIcon(icon);
   SetTargetFPS(60);
   while (!WindowShouldClose()) {
+    SetMasterVolume(volume);
     if (frame_counter == 60) {
       frame_counter = 0;
     } else {
@@ -940,8 +966,7 @@ int main() {
     auto mo = 0.5;
     if (game.is_processing() && frame_counter % 6 == 0) {
       auto f = game.step();
-      if (play_sound && !f.empty() && IsSoundReady(psound) &&
-          !IsSoundPlaying(psound)) {
+      if (play_sound && !f.empty() && IsSoundReady(psound)) {
         PlaySound(psound);
       }
       if (particles) {
@@ -1083,10 +1108,10 @@ int main() {
     DrawText(game.game_stats().c_str(), 3, 0, 30, BLACK);
     DrawText((fmt::format("Player:\n") + game.name()).c_str(), 3, h - 55, 20,
              BLACK);
-    ButtonMaker bm(play_sound, ksound);
+    ButtonMaker bm(play_sound, ksound, volume);
     auto start_y = 0;
     auto sound_button = bm.draw_button(
-        {float(w - 210), float(h - (start_y += 40))}, "SOUND", play_sound);
+        {float(w - 210), float(h - (start_y += 40))}, "SOUND", true);
     auto particles_button = bm.draw_button(
         {float(w - 210), float(h - (start_y += 40))}, "PARTICLES", particles);
     auto hints_button = bm.draw_button(
@@ -1103,6 +1128,11 @@ int main() {
     auto save_button = bm.draw_button(
         {float(w - 210), float(h - (start_y += 40))}, "SAVE", false);
     bm.play_sound();
+    volume = bm.volume();
+    if (volume < 0.05f) {
+      volume = 0.0f;
+    }
+    play_sound = volume != 0.0f;
     if (particles) {
       std::vector<Explosion> new_staying;
       new_staying.reserve(staying.size());
@@ -1147,7 +1177,6 @@ int main() {
     if (!input_name && !game.is_processing()) {
       if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
         auto pos = GetMousePosition();
-        button_flag(pos, sound_button, play_sound);
         button_flag(pos, particles_button, particles);
         button_flag(pos, hints_button, hints);
         button_flag(pos, acid_button, nonacid_colors);
