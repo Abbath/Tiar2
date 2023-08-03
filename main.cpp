@@ -727,24 +727,56 @@ bool in_button(Vector2 pos, Button button) {
          pos.y < button.y2;
 }
 
-Button DrawButton(Vector2 place, std::string text, bool enabled) {
-  bool button = IsMouseButtonDown(MOUSE_BUTTON_LEFT);
-  if (button) {
+class ButtonMaker {
+  bool _play_sound;
+  Sound _sound;
+  std::vector<Button> buttons;
+  static bool enter;
+
+public:
+  ButtonMaker(bool play_sound, Sound sound)
+      : _play_sound{play_sound}, _sound{sound} {}
+  Button draw_button(Vector2 place, std::string text, bool enabled) {
+    bool button_down = IsMouseButtonDown(MOUSE_BUTTON_LEFT);
     auto pos = GetMousePosition();
     if (in_button(pos, Button{int(place.x), int(place.y), int(place.x + 200),
                               int(place.y + 30)})) {
-      DrawRectangle(place.x, place.y, 200, 30, DARKGRAY);
+      DrawRectangle(place.x, place.y, 200, 30,
+                    enabled ? YELLOW : (button_down ? DARKGRAY : LIGHTGRAY));
     } else {
-      DrawRectangle(place.x, place.y, 200, 30, enabled ? YELLOW : GRAY);
+      DrawRectangle(place.x, place.y, 200, 30, enabled ? GOLD : GRAY);
     }
-  } else {
-    DrawRectangle(place.x, place.y, 200, 30, enabled ? YELLOW : GRAY);
+    auto width = MeasureText(text.c_str(), 20);
+    DrawText(text.c_str(), place.x + 100 - width / 2, place.y + 5, 20, BLACK);
+    auto button = Button{int(place.x), int(place.y), int(place.x + 200),
+                         int(place.y + 30)};
+    buttons.push_back(button);
+    return button;
   }
-  auto width = MeasureText(text.c_str(), 20);
-  DrawText(text.c_str(), place.x + 100 - width / 2, place.y + 5, 20, BLACK);
-  return Button{int(place.x), int(place.y), int(place.x + 200),
-                int(place.y + 30)};
-}
+  void play_sound() {
+    if (!_play_sound) {
+      return;
+    }
+    bool in = false;
+    for (auto it = buttons.begin(); it != buttons.end(); ++it) {
+      auto pos = GetMousePosition();
+      if (in_button(pos, *it)) {
+        in = true;
+        if (enter) {
+          enter = false;
+          if (IsSoundReady(_sound)) {
+            PlaySound(_sound);
+          }
+        }
+      }
+    }
+    if (!in) {
+      enter = true;
+    }
+  }
+};
+
+bool ButtonMaker::enter = true;
 
 class Game {
   std::string _name;
@@ -875,7 +907,8 @@ int main() {
   std::uniform_int_distribution<int> dd{-10, 10};
   InitAudioDevice();
   SetMasterVolume(0.5);
-  Sound sound = LoadSound("p.ogg");
+  Sound psound = LoadSound("p.ogg");
+  Sound ksound = LoadSound("k.ogg");
   if (!game.load()) {
     game.new_game();
     input_name = true;
@@ -907,12 +940,12 @@ int main() {
     auto mo = 0.5;
     if (game.is_processing() && frame_counter % 6 == 0) {
       auto f = game.step();
-      if (play_sound && !f.empty() && IsSoundReady(sound) &&
-          !IsSoundPlaying(sound)) {
-        PlaySound(sound);
+      if (play_sound && !f.empty() && IsSoundReady(psound) &&
+          !IsSoundPlaying(psound)) {
+        PlaySound(psound);
       }
       if (particles) {
-        if (play_sound) {
+        if (play_sound && !f.empty()) {
           board_x += dd(eng);
           board_y += dd(eng);
         }
@@ -1050,23 +1083,26 @@ int main() {
     DrawText(game.game_stats().c_str(), 3, 0, 30, BLACK);
     DrawText((fmt::format("Player:\n") + game.name()).c_str(), 3, h - 55, 20,
              BLACK);
+    ButtonMaker bm(play_sound, ksound);
     auto start_y = 0;
-    auto sound_button = DrawButton({float(w - 210), float(h - (start_y += 40))},
-                                   "SOUND", play_sound);
-    auto particles_button = DrawButton(
+    auto sound_button = bm.draw_button(
+        {float(w - 210), float(h - (start_y += 40))}, "SOUND", play_sound);
+    auto particles_button = bm.draw_button(
         {float(w - 210), float(h - (start_y += 40))}, "PARTICLES", particles);
-    auto hints_button = DrawButton({float(w - 210), float(h - (start_y += 40))},
-                                   "HINTS", hints);
-    auto acid_button = DrawButton({float(w - 210), float(h - (start_y += 40))},
-                                  "NO ACID", nonacid_colors);
-    auto lbutton = DrawButton({float(w - 210), float(h - (start_y += 40))},
-                              "LEADERBOARD", draw_leaderboard);
-    auto rbutton = DrawButton({float(w - 210), float(h - (start_y += 40))},
-                              "RESTART", false);
-    auto load_button =
-        DrawButton({float(w - 210), float(h - (start_y += 40))}, "LOAD", false);
-    auto save_button =
-        DrawButton({float(w - 210), float(h - (start_y += 40))}, "SAVE", false);
+    auto hints_button = bm.draw_button(
+        {float(w - 210), float(h - (start_y += 40))}, "HINTS", hints);
+    auto acid_button =
+        bm.draw_button({float(w - 210), float(h - (start_y += 40))}, "NO ACID",
+                       nonacid_colors);
+    auto lbutton = bm.draw_button({float(w - 210), float(h - (start_y += 40))},
+                                  "LEADERBOARD", draw_leaderboard);
+    auto rbutton = bm.draw_button({float(w - 210), float(h - (start_y += 40))},
+                                  "RESTART", false);
+    auto load_button = bm.draw_button(
+        {float(w - 210), float(h - (start_y += 40))}, "LOAD", false);
+    auto save_button = bm.draw_button(
+        {float(w - 210), float(h - (start_y += 40))}, "SAVE", false);
+    bm.play_sound();
     if (particles) {
       std::vector<Explosion> new_staying;
       new_staying.reserve(staying.size());
