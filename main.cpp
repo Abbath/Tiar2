@@ -426,8 +426,8 @@ public:
     crosses = 0;
   }
   // New interface starts here
-  std::vector<std::pair<int, int>> remove_one_thing() {
-    std::vector<std::pair<int, int>> res;
+  std::vector<std::tuple<int, int, int>> remove_one_thing() {
+    std::vector<std::tuple<int, int, int>> res;
     if (!rm_i.empty()) {
       auto t = rm_i.back();
       int i = std::get<0>(t);
@@ -440,8 +440,8 @@ public:
         normals = std::max(0, normals - 1);
       }
       for (int jj = j; jj < j + offset; ++jj) {
+        res.emplace_back(i, jj, at(i, jj));
         at(i, jj) = 0;
-        res.emplace_back(i, jj);
         if (is_magic(i, jj)) {
           score -= 3;
           magic_tiles.erase({i, jj});
@@ -456,8 +456,8 @@ public:
         for (int i = 0; i < w; ++i) {
           auto x = uniform_dist_2(e1);
           auto y = uniform_dist_3(e1);
+          res.emplace_back(x, y, at(x, y));
           at(x, y) = 0;
-          res.emplace_back(x, y);
           score += 1;
         }
         longests += 1;
@@ -479,8 +479,8 @@ public:
         normals = std::max(0, normals - 1);
       }
       for (int ii = i; ii < i + offset; ++ii) {
+        res.emplace_back(ii, j, at(ii, j));
         at(ii, j) = 0;
-        res.emplace_back(ii, j);
         if (is_magic(ii, j)) {
           score -= 3;
           magic_tiles.erase({ii, j});
@@ -495,6 +495,7 @@ public:
         for (int i = 0; i < w; ++i) {
           auto x = uniform_dist_2(e1);
           auto y = uniform_dist_3(e1);
+          res.emplace_back(x, y, at(x, y));
           at(x, y) = 0;
           score += 1;
         }
@@ -512,8 +513,8 @@ public:
       for (int m = -2; m < 3; ++m) {
         for (int n = -2; n < 3; ++n) {
           if (reasonable_coord(i + m, j + n)) {
+            res.emplace_back(i + m, j + n, at(i + m, j + n));
             at(i + m, j + n) = 0;
-            res.emplace_back(i + m, j + n);
             score += 1;
           }
         }
@@ -784,8 +785,8 @@ public:
     _board.swap(row1, col1, row2, col2);
     _board.prepare_removals();
   }
-  std::vector<std::pair<int, int>> step() {
-    std::vector<std::pair<int, int>> res;
+  std::vector<std::tuple<int, int, int>> step() {
+    std::vector<std::tuple<int, int, int>> res;
     auto new_board = _board;
     if (!_board.has_removals()) {
       _board.prepare_removals();
@@ -822,6 +823,9 @@ struct Particle {
   float x = 0;
   float y = 0;
   float a = 0;
+  Color color;
+  int lifetime = 0;
+  int sides = 0;
 };
 
 void button_flag(Vector2 pos, Button button, bool &flag) {
@@ -886,14 +890,53 @@ int main() {
     auto mo = 0.5;
     if (game.is_processing() && frame_counter % 6 == 0) {
       auto f = game.step();
-      if (play_sound && !f.empty() && IsSoundReady(sound)) {
+      if (play_sound && !f.empty() && IsSoundReady(sound) &&
+          !IsSoundPlaying(sound)) {
         PlaySound(sound);
       }
       if (particles) {
+        if (play_sound) {
+          board_x += dd(eng);
+          board_y += dd(eng);
+        }
         for (auto it = f.begin(); it != f.end(); ++it) {
+          Color c;
+          int s;
+          switch (std::get<2>(*it)) {
+          case 1: {
+            c = nonacid_colors ? PINK : RED;
+            s = 4;
+            break;
+          }
+          case 2: {
+            c = nonacid_colors ? LIME : GREEN;
+            s = 0;
+            break;
+          }
+          case 3: {
+            c = nonacid_colors ? SKYBLUE : BLUE;
+            s = 6;
+            break;
+          }
+          case 4: {
+            c = nonacid_colors ? GOLD : ORANGE;
+            s = 3;
+            break;
+          }
+          case 5: {
+            c = nonacid_colors ? PURPLE : MAGENTA;
+            s = 5;
+            break;
+          }
+          case 6: {
+            c = nonacid_colors ? BEIGE : YELLOW;
+            s = 4;
+            break;
+          }
+          }
           flying.emplace_back(dd(eng), dd(eng), dd(eng),
-                              it->second * ss + board_x,
-                              it->first * ss + board_y, 0);
+                              std::get<1>(*it) * ss + board_x,
+                              std::get<0>(*it) * ss + board_y, 0, c, 0, s);
         }
       }
     }
@@ -915,49 +958,47 @@ int main() {
         switch (game.board().at(j, i)) {
         case 1:
           DrawPoly(Vector2{float(pos_x + radius), float(pos_y + radius)}, 4,
-                   radius - mo, 45,
-                   nonacid_colors ? Color{255, 127, 127, 255} : RED);
+                   radius - mo, 45, nonacid_colors ? PINK : RED);
           break;
         case 2:
           DrawCircle(pos_x + radius, pos_y + radius, radius - mo,
-                     nonacid_colors ? Color{127, 255, 127, 255} : GREEN);
+                     nonacid_colors ? LIME : GREEN);
           break;
         case 3:
           DrawPoly(Vector2{float(pos_x + radius), float(pos_y + radius)}, 6,
-                   radius - mo, 30,
-                   nonacid_colors ? Color{127, 127, 255, 255} : BLUE);
+                   radius - mo, 30, nonacid_colors ? SKYBLUE : BLUE);
           break;
         case 4:
           DrawPoly(
               Vector2{float(pos_x + radius), float(pos_y + radius + ss / 12)},
-              3, radius - mo, 180,
-              nonacid_colors ? Color{255, 128, 0, 255} : ORANGE);
+              3, radius - mo, 180, nonacid_colors ? GOLD : ORANGE);
           break;
         case 5:
           DrawPoly(
               Vector2{float(pos_x + radius), float(pos_y + radius + ss / 16)},
-              5, radius - mo, 180,
-              nonacid_colors ? Color{192, 0, 192, 255} : MAGENTA);
+              5, radius - mo, 180, nonacid_colors ? PURPLE : MAGENTA);
           break;
         case 6:
           DrawPoly(Vector2{float(pos_x + radius), float(pos_y + radius)}, 4,
-                   radius - mo, 0,
-                   nonacid_colors ? Color{192, 192, 9, 255} : YELLOW);
+                   radius - mo, 0, nonacid_colors ? BEIGE : YELLOW);
           break;
         default:
           break;
         }
         if (game.board().is_magic(j, i)) {
-          DrawCircle(pos_x + radius, pos_y + radius, 5, BLACK);
+          DrawCircleGradient(pos_x + radius, pos_y + radius, ss / 6, WHITE,
+                             BLACK);
         }
         if (game.board().is_magic2(j, i)) {
-          DrawCircle(pos_x + radius, pos_y + radius, 5, WHITE);
+          DrawCircleGradient(pos_x + radius, pos_y + radius, ss / 6, WHITE,
+                             DARKPURPLE);
         }
       }
     }
     if (input_name) {
       char c = GetCharPressed();
-      if (c && c != ';' && game.name().length() < 22 && !ignore_r) {
+      if ((std::isalnum(c) || c == '_') && game.name().length() < 22 &&
+          !ignore_r) {
         game.name() += c;
       }
       ignore_r = false;
@@ -1009,9 +1050,13 @@ int main() {
       std::vector<Particle> new_flying;
       for (auto it = flying.begin(); it != flying.end(); ++it) {
         Particle p = *it;
-        auto c = MAROON;
-        c.a = 255 - (128 * p.y / h);
-        DrawPoly(Vector2{float(p.x), float(p.y)}, 4, ss / 2, p.a, c);
+        auto c = p.color;
+        c.a = 255 - p.lifetime;
+        if (p.sides == 0) {
+          DrawCircle(p.x, p.y, ss / 2, c);
+        } else {
+          DrawPoly(Vector2{float(p.x), float(p.y)}, p.sides, ss / 2, p.a, c);
+        }
         p.y += p.dy;
         if (p.y > h) {
           continue;
@@ -1019,6 +1064,7 @@ int main() {
         p.x += p.dx;
         p.a += p.da;
         p.dy += 1;
+        p.lifetime += 1;
         new_flying.push_back(p);
       }
       flying = new_flying;
