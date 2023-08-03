@@ -453,9 +453,14 @@ public:
         score += 1;
       }
       if (offset == 5) {
+        std::set<std::pair<int, int>> r;
         for (int i = 0; i < w; ++i) {
-          auto x = uniform_dist_2(e1);
-          auto y = uniform_dist_3(e1);
+          int x, y;
+          do {
+            x = uniform_dist_2(e1);
+            y = uniform_dist_3(e1);
+          } while (r.contains({x, y}));
+          r.insert({x, y});
           res.emplace_back(x, y, at(x, y));
           at(x, y) = 0;
           score += 1;
@@ -492,9 +497,14 @@ public:
         score += 1;
       }
       if (offset == 5) {
+        std::set<std::pair<int, int>> r;
         for (int i = 0; i < w; ++i) {
-          auto x = uniform_dist_2(e1);
-          auto y = uniform_dist_3(e1);
+          int x, y;
+          do {
+            x = uniform_dist_2(e1);
+            y = uniform_dist_3(e1);
+          } while (r.contains({x, y}));
+          r.insert({x, y});
           res.emplace_back(x, y, at(x, y));
           at(x, y) = 0;
           score += 1;
@@ -561,7 +571,7 @@ public:
         auto j2 = std::get<1>(t2);
         auto o2 = std::get<2>(t2);
         if (i1 >= i2 && i1 < (i2 + o2) && j2 >= j1 && j2 < (j1 + o1)) {
-          rm_b.emplace_back(i1, j1);
+          rm_b.emplace_back(i1, j2);
         }
       }
     }
@@ -742,6 +752,7 @@ class Game {
   Board _old_board;
   bool work_board = false;
   bool first_work = true;
+  std::vector<std::tuple<int, int, int>> removed_cells;
 
 public:
   Game(size_t size) : _board{size, size}, _old_board{_board} {}
@@ -787,13 +798,10 @@ public:
   }
   std::vector<std::tuple<int, int, int>> step() {
     std::vector<std::tuple<int, int, int>> res;
-    auto new_board = _board;
     if (!_board.has_removals()) {
       _board.prepare_removals();
     }
-    res = _board.remove_one_thing();
-    _board.fill_up();
-    if (new_board == _board) {
+    if (!_board.has_removals()) {
       if (first_work) {
         restore_state();
       } else {
@@ -803,6 +811,8 @@ public:
       _board.match_patterns();
       _board.match_threes();
     }
+    res = _board.remove_one_thing();
+    _board.fill_up();
     first_work = false;
     return res;
   }
@@ -826,6 +836,12 @@ struct Particle {
   Color color;
   int lifetime = 0;
   int sides = 0;
+};
+
+struct Explosion {
+  int x = 0;
+  int y = 0;
+  int lifetime = 0;
 };
 
 void button_flag(Vector2 pos, Button button, bool &flag) {
@@ -853,6 +869,7 @@ int main() {
   size_t l_offset = 0;
   Leaderboard leaderboard = ReadLeaderboard();
   std::vector<Particle> flying;
+  std::vector<Explosion> staying;
   std::default_random_engine eng{static_cast<unsigned>(
       std::chrono::system_clock::now().time_since_epoch().count())};
   std::uniform_int_distribution<int> dd{-10, 10};
@@ -899,6 +916,8 @@ int main() {
           board_x += dd(eng);
           board_y += dd(eng);
         }
+        flying.reserve(flying.size() + f.size());
+        staying.reserve(staying.size() + f.size());
         for (auto it = f.begin(); it != f.end(); ++it) {
           Color c;
           int s;
@@ -935,8 +954,10 @@ int main() {
           }
           }
           flying.emplace_back(dd(eng), dd(eng), dd(eng),
-                              std::get<1>(*it) * ss + board_x,
-                              std::get<0>(*it) * ss + board_y, 0, c, 0, s);
+                              std::get<1>(*it) * ss + board_x + ss / 2,
+                              std::get<0>(*it) * ss + board_y + ss / 2, 0, c, 0,
+                              s);
+          staying.emplace_back(std::get<1>(*it), std::get<0>(*it), 0);
         }
       }
     }
@@ -1047,7 +1068,23 @@ int main() {
     auto save_button =
         DrawButton({float(w - 210), float(h - (start_y += 40))}, "SAVE", false);
     if (particles) {
+      std::vector<Explosion> new_staying;
+      new_staying.reserve(staying.size());
+      for (auto it = staying.begin(); it != staying.end(); ++it) {
+        Explosion p = *it;
+        DrawRectangle(board_x + p.x * ss + so, board_y + p.y * ss + so,
+                      ss - 2 * so, ss - 2 * so, WHITE);
+        if (p.lifetime > 6) {
+          continue;
+        }
+        p.lifetime += 1;
+        new_staying.push_back(p);
+      }
+      new_staying.shrink_to_fit();
+      staying = new_staying;
+
       std::vector<Particle> new_flying;
+      new_flying.reserve(flying.size());
       for (auto it = flying.begin(); it != flying.end(); ++it) {
         Particle p = *it;
         auto c = p.color;
@@ -1058,7 +1095,7 @@ int main() {
           DrawPoly(Vector2{float(p.x), float(p.y)}, p.sides, ss / 2, p.a, c);
         }
         p.y += p.dy;
-        if (p.y > h) {
+        if (p.y > h || p.x < 0 || p.x > w || p.lifetime > 254) {
           continue;
         }
         p.x += p.dx;
@@ -1067,6 +1104,7 @@ int main() {
         p.lifetime += 1;
         new_flying.push_back(p);
       }
+      new_flying.shrink_to_fit();
       flying = new_flying;
     }
     EndDrawing();
