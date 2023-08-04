@@ -14,12 +14,12 @@
 using namespace std;
 
 struct Point {
-  int x_ = 0;
-  int y_ = 0;
-  int y() const { return y_; }
-  int x() const { return x_; }
-  void setX(int x) { x_ = x; }
-  void setY(int y) { y_ = y; }
+  int _x = 0;
+  int _y = 0;
+  int y() const { return _y; }
+  int x() const { return _x; }
+  void setX(int x) { _x = x; }
+  void setY(int y) { _y = y; }
   friend Point operator-(const Point &a, const Point &b);
   Point &operator-=(const Point &a) {
     *this = *this - a;
@@ -28,7 +28,7 @@ struct Point {
 };
 
 Point operator-(const Point &a, const Point &b) {
-  return Point{a.x_ - b.x_, a.y_ - b.y_};
+  return Point{a._x - b._x, a._y - b._y};
 }
 
 using Pattern = std::vector<Point>;
@@ -169,8 +169,8 @@ public:
   Board(size_t _w, size_t _h) : w{_w}, h{_h} {
     board.resize(w * h);
     std::fill(std::begin(board), std::end(board), 0);
-    uniform_dist_2 = std::uniform_int_distribution<int>(0, w);
-    uniform_dist_3 = std::uniform_int_distribution<int>(0, h);
+    uniform_dist_2 = std::uniform_int_distribution<int>(0, w - 1);
+    uniform_dist_3 = std::uniform_int_distribution<int>(0, h - 1);
   }
   Board(const Board &b) {
     w = b.w;
@@ -246,7 +246,6 @@ public:
     }
   }
   void fill() {
-    score = 0;
     for (auto &x : board) {
       x = uniform_dist(e1);
     }
@@ -727,7 +726,7 @@ bool in_button(Vector2 pos, Button button) {
          pos.y < button.y2;
 }
 
-bool operator==(const Color& a, const Color& b) {
+bool operator==(const Color &a, const Color &b) {
   return a.r == b.r && a.g == b.g && a.b == a.b && a.a == b.a;
 }
 class ButtonMaker {
@@ -747,7 +746,7 @@ public:
                               int(place.y + 30)})) {
       Color c = enabled ? YELLOW : (button_down ? DARKGRAY : LIGHTGRAY);
       if (text == "SOUND") {
-        int level{_volume * 200};
+        int level = int(_volume * 200);
         DrawRectangle(place.x, place.y, level, 30, YELLOW);
         DrawRectangle(place.x + level, place.y, 200 - level, 30, LIGHTGRAY);
         if (button_down) {
@@ -760,14 +759,16 @@ public:
     } else {
       Color c = enabled ? GOLD : GRAY;
       if (text == "SOUND") {
-        int level{_volume * 200};
+        int level = int(_volume * 200);
         DrawRectangle(place.x, place.y, level, 30, GOLD);
         DrawRectangle(place.x + level, place.y, 200 - level, 30, GRAY);
       } else {
         DrawRectangle(place.x, place.y, 200, 30, c);
       }
     }
-    const char *label = text == "SOUND" ? fmt::format("SOUND ({}%)", int(_volume * 100)).c_str() : text.c_str();
+    const char *label =
+        text == "SOUND" ? fmt::format("SOUND ({}%)", int(_volume * 100)).c_str()
+                        : text.c_str();
     auto width = MeasureText(label, 20);
     DrawText(label, place.x + 100 - width / 2, place.y + 5, 20, BLACK);
     auto button = Button{int(place.x), int(place.y), int(place.x + 200),
@@ -796,9 +797,7 @@ public:
       enter = true;
     }
   }
-  float volume() const {
-    return _volume;
-  }
+  float volume() const { return _volume; }
 };
 
 bool ButtonMaker::enter = true;
@@ -807,16 +806,16 @@ class Game {
   std::string _name;
   Board _board;
   Board _old_board;
-  bool work_board = false;
-  bool first_work = true;
-  std::vector<std::tuple<int, int, int>> removed_cells;
+  bool _work_board = false;
+  bool _first_work = true;
+  std::vector<std::tuple<int, int, int>> _removed_cells;
 
 public:
   Game(size_t size) : _board{size, size}, _old_board{_board} {}
   int counter = 0;
   void new_game() {
     counter = 0;
-    work_board = false;
+    _work_board = false;
     _board.fill();
     _board.stabilize();
     _board.zero();
@@ -829,7 +828,7 @@ public:
   bool load() {
     std::ifstream load("save.txt");
     if (load) {
-      work_board = false;
+      _work_board = false;
       load >> _name >> counter >> _board;
       _board.match_patterns();
       _board.match_threes();
@@ -847,8 +846,8 @@ public:
   Board &board() { return _board; }
   std::string &name() { return _name; }
   void attempt_move(int row1, int col1, int row2, int col2) {
-    first_work = true;
-    work_board = true;
+    _first_work = true;
+    _work_board = true;
     save_state();
     _board.swap(row1, col1, row2, col2);
     _board.prepare_removals();
@@ -859,22 +858,22 @@ public:
       _board.prepare_removals();
     }
     if (!_board.has_removals()) {
-      if (first_work) {
+      if (_first_work) {
         restore_state();
       } else {
         counter += 1;
       }
-      work_board = false;
+      _work_board = false;
       _board.match_patterns();
       _board.match_threes();
     }
     res = _board.remove_one_thing();
     _board.fill_up();
-    first_work = false;
+    _first_work = false;
     return res;
   }
   bool is_finished() { return counter == 50; }
-  bool is_processing() { return work_board; }
+  bool is_processing() { return _work_board; }
   std::string game_stats() {
     return fmt::format("Moves: {}\nScore: {}\nTrios: {}\nQuartets: "
                        "{}\nQuintets: {}\nCrosses: {}",
