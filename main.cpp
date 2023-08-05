@@ -697,21 +697,40 @@ void WriteLeaderboard(Leaderboard leaderboard) {
 void DrawLeaderboard(Leaderboard leaderboard, size_t offset = 0) {
   auto w = GetRenderWidth();
   auto h = GetRenderHeight();
+  auto start_y = h / 4 + 10;
   DrawRectangle(w / 4, h / 4, w / 2, h / 2, WHITE);
-  std::string text = "Leaderboard:\n";
+  // std::string text = "Leaderboard:\n";
+  DrawText("Leaderboard:", w / 4 + 10, start_y, 20, BLACK);
   std::sort(std::begin(leaderboard), std::end(leaderboard),
             [](auto &a, auto &b) { return a.second > b.second; });
   offset = std::min(offset, leaderboard.size() - 1);
   auto finish = std::min(offset + 9, leaderboard.size());
   for (auto it = leaderboard.begin() + offset;
        it != leaderboard.begin() + finish; ++it) {
-    text += fmt::format("{}. {}: {}\n", (it - leaderboard.begin()) + 1,
-                        it->first, it->second);
+    std::string text = fmt::format(
+        "{}. {}: {}\n", (it - leaderboard.begin()) + 1, it->first, it->second);
+    start_y += 30;
+    Color c = BLACK;
+    switch (it - leaderboard.begin())
+    {
+    case 0:
+      c = GOLD;
+      break;
+    case 1:
+      c = GRAY;
+      break;
+    case 2:
+      c = ORANGE;
+      break;    
+    default:
+      break;
+    }
+    DrawText(text.c_str(), w / 4 + 10, start_y, 20, c);
   }
   if (finish != leaderboard.size()) {
-    text += "...";
+    DrawText("...", w / 4 + 10, start_y + 30, 20, BLACK);
   }
-  DrawText(text.c_str(), w / 4 + 10, h / 4 + 10, 20, BLACK);
+  
 }
 
 struct Button {
