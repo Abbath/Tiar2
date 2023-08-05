@@ -699,7 +699,6 @@ void DrawLeaderboard(Leaderboard leaderboard, size_t offset, int place) {
   auto h = GetRenderHeight();
   auto start_y = h / 4 + 10;
   DrawRectangle(w / 4, h / 4, w / 2, h / 2, WHITE);
-  // std::string text = "Leaderboard:\n";
   DrawText("Leaderboard:", w / 4 + 10, start_y, 20, BLACK);
   std::sort(std::begin(leaderboard), std::end(leaderboard),
             [](auto &a, auto &b) { return a.second > b.second; });
@@ -1092,6 +1091,35 @@ int main() {
         if (game.board().is_magic2(j, i)) {
           DrawCircleGradient(pos_x + radius, pos_y + radius, ss / 6, WHITE,
                              DARKPURPLE);
+        }
+      }
+    }
+    if (!first_click) {
+      auto pos = GetMousePosition();
+      pos = Vector2Subtract(pos, Vector2{float(board_x), float(board_y)});
+      if (!(pos.x < 0 || pos.y < 0 || pos.x > ss * board_size || pos.y > ss * board_size)) {
+        int row = trunc(pos.y / ss);
+        int col = trunc(pos.x / ss);
+        auto dx = col - saved_col;
+        auto dy = row - saved_row;
+        auto radius = (ss - 2 * so) / 2;
+        auto pos_x = board_x + saved_col * ss + so;
+        auto pos_y = board_y + saved_row * ss + so;
+        if (dx == 1 && dy == 0 || dx == 0 && dy == 1) {
+          if (dx == 1) {
+            DrawRectangleGradientH(pos_x + radius - 10, pos_y + radius - 10, dx == 1 ? ss + 10 : 20, dy == 1 ? ss + 10 : 20, BLANK, MAROON);
+          } else {
+            DrawRectangleGradientV(pos_x + radius - 10, pos_y + radius - 10, dx == 1 ? ss + 10 : 20, dy == 1 ? ss + 10 : 20, BLANK, MAROON);
+          }
+          DrawPoly(Vector2{float(pos_x + radius + (dx == 1 ? ss : 0)), float(pos_y + radius + (dy == 1 ? ss : 0))}, 3, radius - mo, dx == 1 ? 90 : 0, MAROON);
+        }
+        if (dx == -1 && dy == 0 || dx == 0 && dy == -1) {
+          if (dx == -1) {
+            DrawRectangleGradientH(pos_x + radius - (dx == -1 ? ss : 10), pos_y + radius - (dy == -1 ? ss : 10), dx == -1 ? ss + 10 : 20, dy == -1 ? ss + 10 : 20, MAROON, BLANK);
+          } else {
+            DrawRectangleGradientV(pos_x + radius - (dx == -1 ? ss : 10), pos_y + radius - (dy == -1 ? ss : 10), dx == -1 ? ss + 10 : 20, dy == -1 ? ss + 10 : 20, MAROON, BLANK);
+          }
+          DrawPoly(Vector2{float(pos_x + radius - (dx == -1 ? ss : 0)), float(pos_y + radius - (dy == -1 ? ss : 0))}, 3, radius - mo, dx == -1 ? 270 : 180, MAROON);
         }
       }
     }
