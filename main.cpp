@@ -694,7 +694,7 @@ void WriteLeaderboard(Leaderboard leaderboard) {
   output << text;
 }
 
-void DrawLeaderboard(Leaderboard leaderboard, size_t offset = 0) {
+void DrawLeaderboard(Leaderboard leaderboard, size_t offset, int place) {
   auto w = GetRenderWidth();
   auto h = GetRenderHeight();
   auto start_y = h / 4 + 10;
@@ -711,8 +711,7 @@ void DrawLeaderboard(Leaderboard leaderboard, size_t offset = 0) {
         "{}. {}: {}\n", (it - leaderboard.begin()) + 1, it->first, it->second);
     start_y += 30;
     Color c = BLACK;
-    switch (it - leaderboard.begin())
-    {
+    switch (it - leaderboard.begin()) {
     case 0:
       c = GOLD;
       break;
@@ -721,16 +720,19 @@ void DrawLeaderboard(Leaderboard leaderboard, size_t offset = 0) {
       break;
     case 2:
       c = ORANGE;
-      break;    
+      break;
     default:
       break;
+    }
+    if (place == it - leaderboard.begin()) {
+      auto width = MeasureText(text.c_str(), 20);
+      DrawRectangle(w / 4 + 5, start_y, width + 10, 25, LIGHTGRAY);
     }
     DrawText(text.c_str(), w / 4 + 10, start_y, 20, c);
   }
   if (finish != leaderboard.size()) {
     DrawText("...", w / 4 + 10, start_y + 30, 20, BLACK);
   }
-  
 }
 
 struct Button {
@@ -943,6 +945,7 @@ int main() {
   bool ignore_r = false;
   size_t l_offset = 0;
   float volume = 0.0f;
+  int leaderboard_place = -1;
   Leaderboard leaderboard = ReadLeaderboard();
   std::vector<Particle> flying;
   std::vector<Explosion> staying;
@@ -1121,7 +1124,7 @@ int main() {
         }
         l_offset = std::min(l_offset, leaderboard.size() - 1);
       }
-      DrawLeaderboard(leaderboard, l_offset);
+      DrawLeaderboard(leaderboard, l_offset, leaderboard_place);
     }
     DrawText(game.game_stats().c_str(), 3, 0, 30, BLACK);
     DrawText((fmt::format("Player:\n") + game.name()).c_str(), 3, h - 55, 20,
@@ -1269,6 +1272,9 @@ int main() {
         }
         case KEY_L: {
           draw_leaderboard = !draw_leaderboard;
+          if (draw_leaderboard == false) {
+            leaderboard_place = -1;
+          }
           break;
         }
         case KEY_P: {
@@ -1301,7 +1307,15 @@ int main() {
       }
     }
     if (game.is_finished()) {
-      leaderboard.emplace_back(game.name(), game.board().score);
+      for (auto i = 0; i <= leaderboard.size(); ++i) {
+        if (i == leaderboard.size() || leaderboard[i].second < game.board().score) {
+          leaderboard.insert(leaderboard.begin() + i,
+                             {game.name(), game.board().score});
+          leaderboard_place = i;
+          l_offset = std::max(0, i - 4);
+          break;
+        }
+      }
       WriteLeaderboard(leaderboard);
       game.new_game();
       draw_leaderboard = true;
