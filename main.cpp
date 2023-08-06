@@ -1107,17 +1107,17 @@ int main() {
         auto pos_y = board_y + saved_row * ss + so;
         if (dx == 1 && dy == 0 || dx == 0 && dy == 1) {
           if (dx == 1) {
-            DrawRectangleGradientH(pos_x + radius - 10, pos_y + radius - 10, dx == 1 ? ss + 10 : 20, dy == 1 ? ss + 10 : 20, BLANK, MAROON);
+            DrawRectangleGradientH(pos_x + radius - 10, pos_y + radius - 10, dx == 1 ? ss : 20, dy == 1 ? ss : 20, BLANK, MAROON);
           } else {
-            DrawRectangleGradientV(pos_x + radius - 10, pos_y + radius - 10, dx == 1 ? ss + 10 : 20, dy == 1 ? ss + 10 : 20, BLANK, MAROON);
+            DrawRectangleGradientV(pos_x + radius - 10, pos_y + radius - 10, dx == 1 ? ss : 20, dy == 1 ? ss : 20, BLANK, MAROON);
           }
           DrawPoly(Vector2{float(pos_x + radius + (dx == 1 ? ss : 0)), float(pos_y + radius + (dy == 1 ? ss : 0))}, 3, radius - mo, dx == 1 ? 90 : 0, MAROON);
         }
         if (dx == -1 && dy == 0 || dx == 0 && dy == -1) {
           if (dx == -1) {
-            DrawRectangleGradientH(pos_x + radius - (dx == -1 ? ss : 10), pos_y + radius - (dy == -1 ? ss : 10), dx == -1 ? ss + 10 : 20, dy == -1 ? ss + 10 : 20, MAROON, BLANK);
+            DrawRectangleGradientH(pos_x + radius - (dx == -1 ? ss - 10 : 0), pos_y + radius - (dy == -1 ? ss : 10), dx == -1 ? ss : 20, dy == -1 ? ss + 10 : 20, MAROON, BLANK);
           } else {
-            DrawRectangleGradientV(pos_x + radius - (dx == -1 ? ss : 10), pos_y + radius - (dy == -1 ? ss : 10), dx == -1 ? ss + 10 : 20, dy == -1 ? ss + 10 : 20, MAROON, BLANK);
+            DrawRectangleGradientV(pos_x + radius - (dx == -1 ? ss : 10), pos_y + radius - (dy == -1 ? ss - 10 : 0), dx == -1 ? ss + 10 : 20, dy == -1 ? ss : 20, MAROON, BLANK);
           }
           DrawPoly(Vector2{float(pos_x + radius - (dx == -1 ? ss : 0)), float(pos_y + radius - (dy == -1 ? ss : 0))}, 3, radius - mo, dx == -1 ? 270 : 180, MAROON);
         }
